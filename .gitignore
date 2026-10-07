@@ -1,0 +1,5 @@
+models/
+*.gguf
+*.part
+__pycache__/
+*.pyc
