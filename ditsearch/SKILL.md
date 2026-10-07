@@ -125,12 +125,30 @@ Otherwise ask the user which window to use, showing for the full history and a f
 
 ## 3. Download
 
-`ditsearch download sub1,sub2 --after 2025-01-06 [--before 2026-01]`
+**With Chrome (preferred, several times faster):** use Arctic Shift's own download page
+through the Claude in Chrome tools. For each subreddit, one at a time:
+1. Open https://arctic-shift.photon-reddit.com/download-tool, choose `r/`, type the
+   subreddit name and leave the field (the page then shows its size). Set "Start date" to
+   the window's start (YYYY-MM-DD); leave "End date" at `now`. Keep both "Download posts"
+   and "Download comments" ticked. Click Start.
+2. Windows' "Save as" box opens twice (posts, then comments), outside the page, where you
+   can't click. Tell the user: "Click Save in the two Save boxes; keep the Downloads folder
+   and the suggested names."
+3. Wait until the page shows "Download complete" for both posts and comments (read the
+   page text every minute or so; it also shows how far each has got). Then the next
+   subreddit.
+4. When all are done: `ditsearch import sub1,sub2 --after 2025-01-06`. It moves
+   `r_<sub>_posts.jsonl` and `r_<sub>_comments.jsonl` out of `~/Downloads` into the cache
+   (`--from` for another folder) and builds the index, exactly as `download` would. It
+   refuses a file that is still being written or holds another subreddit.
+
+**Without Chrome:** `ditsearch download sub1,sub2 --after 2025-01-06 [--before 2026-01]`
+does the same by itself, slower.
 
 Dates take these forms: `2025`, `2025-01`, `2025-01-06`, epoch seconds, or relative (`2y`,
 `6m`, `6w`, `30d`). Without `--after` the download takes the full history.
 
-**How it downloads:**
+**How `ditsearch download` downloads:**
 - Each subreddit is split into ~20,000-item chunks by its per-day counts, largest first.
 - Arctic Shift gives each client a budget of server time per minute, which depends on its
   load. The downloader runs until the minute's budget is used, then waits for the next

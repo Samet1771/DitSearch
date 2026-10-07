@@ -77,6 +77,12 @@ these steps:
 5. filtering
 6. answering from the report
 
+Downloads go through Arctic Shift's own
+[download page](https://arctic-shift.photon-reddit.com/download-tool) when Claude can use
+Chrome (Claude in Chrome): Claude fills it in, you click Save in the two save boxes per
+subreddit, and `ditsearch.py import` moves the files from Downloads into DitSearch. Without
+Chrome, `ditsearch.py download` fetches everything itself, more slowly.
+
 The long steps (download, filter) run as background tasks with live progress. On an RTX
 5070 Ti the filter takes ~0.5 s per post, comment threads included: about 4 min for 500
 posts. Downloads depend on Arctic Shift's load: ~15-80 items/s when it is busy, several

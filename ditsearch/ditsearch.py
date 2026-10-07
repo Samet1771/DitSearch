@@ -7,6 +7,7 @@ SQLite FTS5, search them, and filter the hits with a local System 1 decision mod
     ditsearch.py setup [--quant Q8_0|Q4_K_M] [--download]   check llama-server + model
     ditsearch.py subs NAME ... [--prefix P] [--after DATE]   verify subreddits, show sizes
     ditsearch.py download SUB,SUB [--after DATE] [--before DATE]   download + build index
+    ditsearch.py import SUB,SUB [--after DATE] [--from ~/Downloads]   take the web download tool's files, build
     ditsearch.py build                                       rebuild reddit.db from the cache
     ditsearch.py cache                                       list cached subreddits
     ditsearch.py flairs [--sub X]                            link flairs with post / hit / kept counts
@@ -801,6 +802,67 @@ def cmd_download(a):
     for s in subs:
         drop_superseded(s)
     write_atomic(CONFIG_PATH, json.dumps(cfg))  # only now: a failed download must not claim the new window
+    build({s: cfg['subs'][s] for s in subs})
+
+
+def web_tool_file(folder, sub, kind):
+    """The newest r_<sub>_<kind>*.jsonl that Arctic Shift's download tool saved in folder, or None.
+    Chrome names a second copy 'r_x_posts (1).jsonl'."""
+    pattern = re.compile(rf'r_{re.escape(sub)}_{kind}( \(\d+\))?\.jsonl', re.I)
+    found = [os.path.join(folder, n) for n in os.listdir(folder) if pattern.fullmatch(n)] if os.path.isdir(folder) else []
+    return max(found, key=os.path.getmtime, default=None)
+
+
+def cmd_import(a):
+    """Take files saved by Arctic Shift's download tool (arctic-shift.photon-reddit.com/download-tool)
+    out of --from into the cache, as if `download` had fetched them, then build the index."""
+    check_fts5()
+    subs = norm_subs([a.subs])
+    after, before = a.after or REDDIT_START, a.before
+    folder = os.path.abspath(os.path.expanduser(a.source))
+    stage(f'Import: files of the download tool from {folder}')
+    files = {}
+    for s in subs:
+        for k in KINDS:
+            path = web_tool_file(folder, s, k)
+            if not path:
+                sys.exit(f'No r_{s}_{k}.jsonl in {folder}. Save both files of r/{s} there with the download tool.')
+            if os.path.exists(path + '.crswap'):
+                sys.exit(f'{os.path.basename(path)} is still being written: wait for "Download complete" on the page.')
+            files[(s, k)] = path
+    cfg = load_config()
+    names = {s.lower() for s in subs}
+    cfg['subs'] = {s: w for s, w in cfg.get('subs', {}).items() if s.lower() not in names}
+    cfg['subs'].update({s: [after, before] for s in subs})
+    for (s, k), path in files.items():
+        end = before or int(os.path.getmtime(path))  # "now" on the page: rows up to when the file was saved
+        keep, rows, other = FIELDS[k].split(','), [], 0
+        with open(path, encoding='utf-8') as f:
+            for line in f:
+                try:
+                    r = json.loads(line)
+                    created = int(r['created_utc'])
+                except (ValueError, KeyError, TypeError):
+                    continue  # a torn or empty line
+                if (r.get('subreddit') or '').lower() != s.lower():
+                    other += 1
+                elif after <= created < end:
+                    rows.append({**{x: r[x] for x in keep if x in r}, 'created_utc': created})
+        if other and not rows:
+            sys.exit(f'{os.path.basename(path)} holds another subreddit, not r/{s}.')
+        index = load_index(s)
+        n = max((int(e['file'].split('.')[1]) for e in index[k]), default=0) + 1
+        e = {'file': f'{k}.{n:04d}.jsonl', 'start': after, 'end': end, 'est': 0}
+        os.makedirs(archive_dir(s), exist_ok=True)
+        write_atomic(entry_path(s, e), [json.dumps(r) + '\n' for r in sorted(rows, key=lambda r: r['created_utc'])])
+        write_atomic(entry_path(s, e) + '.done', f'{len(rows)} {int(time.time())}')
+        index[k].append(e)
+        save_index(s, index)
+        os.remove(path)  # moved into the cache
+        print(f'  r/{s}: {len(rows):,} {k} from {os.path.basename(path)} ({date(after)} to {date(end)})', flush=True)
+    for s in subs:
+        drop_superseded(s)
+    write_atomic(CONFIG_PATH, json.dumps(cfg))
     build({s: cfg['subs'][s] for s in subs})
 
 
@@ -2513,7 +2575,7 @@ class Tee:
         return getattr(self.stream, 'encoding', 'utf-8')
 
 
-WRITES = ('download', 'build', 'search', 'filter', 'judge')  # the commands that create --dir and ditsearch.log
+WRITES = ('download', 'import', 'build', 'search', 'filter', 'judge')  # the commands that create --dir and ditsearch.log
 
 
 def add_question_args(p):
@@ -2556,6 +2618,13 @@ def main():
                                                     '(default: full history)')
     p.add_argument('--before', type=parse_date, help='default: now')
     p.set_defaults(fn=cmd_download)
+
+    p = sp.add_parser('import', help="move files saved by Arctic Shift's web download tool into the cache, then build")
+    p.add_argument('subs', help='comma separated, e.g. LocalLLM,Qwen_AI (files r_<sub>_posts.jsonl, r_<sub>_comments.jsonl)')
+    p.add_argument('--after', type=parse_date, help='the start date set on the page (default: full history)')
+    p.add_argument('--before', type=parse_date, help='the end date set on the page (default: now)')
+    p.add_argument('--from', dest='source', default='~/Downloads', help='where the files were saved (default ~/Downloads)')
+    p.set_defaults(fn=cmd_import)
 
     p = sp.add_parser('build', help='rebuild reddit.db from the cache (download runs this itself)')
     p.set_defaults(fn=cmd_build)
