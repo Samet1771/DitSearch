@@ -126,11 +126,11 @@ CACHE_DIR = os.path.join(HOME_DIR, 'cache')    # downloads, locks, server pidfil
 MODEL_DIR = os.path.join(HOME_DIR, 'models')
 RESEARCH_DIR = os.path.join(HOME_DIR, 'research')  # one folder per research topic
 MIN_LLAMA_BUILD = 11371  # first llama.cpp build with Clef / /v1/systemone (PR #29831)
-PORT = int(os.environ.get('RR_PORT') or 8091)
+PORT = int(os.environ.get('DITSEARCH_PORT') or 8091)
 # Measured on an RTX 5070 Ti 16 GB (~11.4 GB used): 4 slots of 8K run short states
 # ~30% faster than 1 slot and long ones no slower; a 16K ubatch is slower and throws
 # intermittent compute errors. Each state must fit one ubatch (Clef evaluates it at once).
-SERVER_ARGS = (shlex.split(os.environ['RR_SERVER_ARGS']) if os.environ.get('RR_SERVER_ARGS') else
+SERVER_ARGS = (shlex.split(os.environ['DITSEARCH_SERVER_ARGS']) if os.environ.get('DITSEARCH_SERVER_ARGS') else
                ['-ngl', '99', '-fa', 'on', '-c', '32768', '-np', '4', '-b', '8192', '-ub', '8192'])
 FILTER_WORKERS = 6
 STATE_TOKENS = 3800        # per decision (~14K characters of English); the 8192-token slot also holds the questions
@@ -1357,8 +1357,8 @@ SERVER = {'proc': None, 'key': None, 'log': None, 'model_id': None, 'job': None}
 
 
 def find_server():
-    """llama-server: $RR_LLAMA_SERVER, PATH, or a LlamaGUI install."""
-    candidates = [os.environ.get('RR_LLAMA_SERVER'), shutil.which('llama-server')]
+    """llama-server: $DITSEARCH_LLAMA_SERVER, PATH, or a LlamaGUI install."""
+    candidates = [os.environ.get('DITSEARCH_LLAMA_SERVER'), shutil.which('llama-server')]
     cfg = os.path.expanduser('~/.llamagui/config.json')
     if os.path.exists(cfg):
         try:
@@ -1379,10 +1379,10 @@ def server_build(binary):
 
 
 def find_model():
-    """Clef-Flash gguf: $RR_MODEL, the one `setup --download` chose, the models folder next to ditsearch.py,
+    """Clef-Flash gguf: $DITSEARCH_MODEL, the one `setup --download` chose, the models folder next to ditsearch.py,
     models/ next to the script, or a LlamaGUI / LM Studio models dir."""
-    if os.environ.get('RR_MODEL'):
-        return os.environ['RR_MODEL'] if os.path.exists(os.environ['RR_MODEL']) else None
+    if os.environ.get('DITSEARCH_MODEL'):
+        return os.environ['DITSEARCH_MODEL'] if os.path.exists(os.environ['DITSEARCH_MODEL']) else None
     try:
         with open(os.path.join(MODEL_DIR, 'model.json')) as f:
             chosen = json.load(f)['model']
@@ -1461,7 +1461,7 @@ def cmd_setup(a):
     if not binary:
         print('  llama-server: NOT FOUND. Install llama.cpp (e.g. "winget install llama.cpp", '
               '"brew install llama.cpp", or a release from github.com/ggml-org/llama.cpp), '
-              'or set RR_LLAMA_SERVER to its path.')
+              'or set DITSEARCH_LLAMA_SERVER to its path.')
     else:
         build = server_build(binary)
         ok = build is not None and build >= MIN_LLAMA_BUILD
@@ -2530,7 +2530,7 @@ def main():
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, 'reconfigure'):
             stream.reconfigure(encoding='utf-8', errors='replace', line_buffering=True)
-    for var in ('RR_MODEL', 'RR_LLAMA_SERVER'):  # relative to where ditsearch.py was started, not --dir
+    for var in ('DITSEARCH_MODEL', 'DITSEARCH_LLAMA_SERVER'):  # relative to where ditsearch.py was started, not --dir
         if os.environ.get(var):
             os.environ[var] = os.path.abspath(os.path.expanduser(os.environ[var]))
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
