@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 """
-reddit-research: download subreddits from the Arctic Shift archive, index them in
+DitSearch: download subreddits from the Arctic Shift archive, index them in
 SQLite FTS5, search them, and filter the hits with a local System 1 decision model
 (Clef-Flash via llama.cpp's /v1/systemone) into one markdown report.
 
-    rr.py setup [--quant Q8_0|Q4_K_M] [--download]   check llama-server + model
-    rr.py subs NAME ... [--prefix P] [--after DATE]   verify subreddits, show sizes
-    rr.py download SUB,SUB [--after DATE] [--before DATE]   download + build index
-    rr.py build                                       rebuild reddit.db from the cache
-    rr.py cache                                       list cached subreddits
-    rr.py flairs [--sub X]                            link flairs with post / hit / kept counts
-    rr.py search "q" ... [--sql S] [--flair F] [--exclude-flair F] [--sub X] [--peek N] [--list] [--reset]
-    rr.py judge --q Q1 --q Q2 [--must M] [--not N] [--sample 60 | IDS] [--recall-audit QUERY]
-    rr.py filter --q Q1 --q Q2 [--must M] [--not N] [--limit 500] [--budget 50000] [--out report.md]
-    rr.py show P123 [1abc2de ...]                     print posts with their pruned threads
+    ditsearch.py setup [--quant Q8_0|Q4_K_M] [--download]   check llama-server + model
+    ditsearch.py subs NAME ... [--prefix P] [--after DATE]   verify subreddits, show sizes
+    ditsearch.py download SUB,SUB [--after DATE] [--before DATE]   download + build index
+    ditsearch.py build                                       rebuild reddit.db from the cache
+    ditsearch.py cache                                       list cached subreddits
+    ditsearch.py flairs [--sub X]                            link flairs with post / hit / kept counts
+    ditsearch.py search "q" ... [--sql S] [--flair F] [--exclude-flair F] [--sub X] [--peek N] [--list] [--reset]
+    ditsearch.py judge --q Q1 --q Q2 [--must M] [--not N] [--sample 60 | IDS] [--recall-audit QUERY]
+    ditsearch.py filter --q Q1 --q Q2 [--must M] [--not N] [--limit 500] [--budget 50000] [--out report.md]
+    ditsearch.py show P123 [1abc2de ...]                     print posts with their pruned threads
 
 Global option: --dir PATH (working directory for this research topic, default: cwd; a bare
-name like `gecko-breeding` means ~/.RedSearch/research/gecko-breeding).
-Data lives in ~/.RedSearch (or $REDSEARCH_HOME): cache/, models/, research/.
+name like `gecko-breeding` means ~/.DitSearch/research/gecko-breeding).
+Data lives in ~/.DitSearch (or $DITSEARCH_HOME): cache/, models/, research/.
 Standard library only. Python 3.9+.
 """
 import argparse
@@ -51,7 +51,7 @@ from datetime import datetime, timezone
 
 VERSION = '3.0'
 API = 'https://arctic-shift.photon-reddit.com/api'
-HEADERS = {'User-Agent': 'reddit-research-skill/2.0', 'Accept-Encoding': 'gzip'}
+HEADERS = {'User-Agent': f'DitSearch/{VERSION}', 'Accept-Encoding': 'gzip'}
 FIELDS = {
     'posts': 'id,subreddit,title,selftext,author,author_flair_text,link_flair_text,'
              'score,created_utc,num_comments,over_18,url',
@@ -121,7 +121,7 @@ def clean(text):
 
 HF = 'https://huggingface.co'
 MODEL_REPO = 'ggml-org/Clef-Flash-GGUF'
-HOME_DIR = os.path.abspath(os.path.expanduser(os.environ.get('REDSEARCH_HOME') or '~/.RedSearch'))
+HOME_DIR = os.path.abspath(os.path.expanduser(os.environ.get('DITSEARCH_HOME') or '~/.DitSearch'))
 CACHE_DIR = os.path.join(HOME_DIR, 'cache')    # downloads, locks, server pidfile
 MODEL_DIR = os.path.join(HOME_DIR, 'models')
 RESEARCH_DIR = os.path.join(HOME_DIR, 'research')  # one folder per research topic
@@ -1006,7 +1006,7 @@ def build(windows):
 def cmd_build(a):
     cfg = load_config()
     if not cfg.get('subs'):
-        sys.exit(f'No {CONFIG_PATH} in {os.getcwd()}. Run "rr.py download" first.')
+        sys.exit(f'No {CONFIG_PATH} in {os.getcwd()}. Run "ditsearch.py download" first.')
     build(cfg['subs'])
 
 
@@ -1090,7 +1090,7 @@ def render_thread(thread, hide_images=False):
 
 def need_db():
     if not os.path.exists(DB_PATH):
-        sys.exit(f'No {DB_PATH} in {os.getcwd()}. Run "rr.py download" first.')
+        sys.exit(f'No {DB_PATH} in {os.getcwd()}. Run "ditsearch.py download" first.')
     return connect()
 
 
@@ -1379,8 +1379,8 @@ def server_build(binary):
 
 
 def find_model():
-    """Clef-Flash gguf: $RR_MODEL, the one `setup --download` chose, the models folder next to rr.py,
-    older download places, or a LlamaGUI / LM Studio models dir."""
+    """Clef-Flash gguf: $RR_MODEL, the one `setup --download` chose, the models folder next to ditsearch.py,
+    models/ next to the script, or a LlamaGUI / LM Studio models dir."""
     if os.environ.get('RR_MODEL'):
         return os.environ['RR_MODEL'] if os.path.exists(os.environ['RR_MODEL']) else None
     try:
@@ -1390,7 +1390,7 @@ def find_model():
             return chosen
     except (OSError, ValueError, KeyError):
         pass
-    for root in (MODEL_DIR, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models'), '~/.cache/reddit-research',
+    for root in (MODEL_DIR, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models'),
                  '~/.llamagui/models', '~/.lmstudio/models', '~/models'):
         hits = sorted(glob.glob(os.path.join(os.path.expanduser(root), '**', 'Clef-Flash-*.gguf'), recursive=True))
         hits = [h for h in hits if not h.endswith('.part')]
@@ -1473,7 +1473,7 @@ def cmd_setup(a):
         print(f'  model: {model} OK')
     elif not a.download:
         size = {'Q8_0': '9.7 GB, ~11.5 GB VRAM', 'Q4_K_M': '6.5 GB, ~8 GB VRAM'}[a.quant]
-        print(f'  model: NOT FOUND. Run "rr.py setup --download [--quant {a.quant}]" to fetch '
+        print(f'  model: NOT FOUND. Run "ditsearch.py setup --download [--quant {a.quant}]" to fetch '
               f'Clef-Flash-{a.quant}.gguf ({size}) from huggingface.co/{MODEL_REPO}')
     else:
         path = download_model(f'Clef-Flash-{a.quant}.gguf')
@@ -1534,7 +1534,7 @@ def accepts_key(port, key):
 
 
 def clean_orphan():
-    """A llama-server left behind by an rr.py that died hard (macOS can't tie it to us) is
+    """A llama-server left behind by an ditsearch.py that died hard (macOS can't tie it to us) is
     stopped if it refuses a random key but accepts the one we stored for it (a server without
     --api-key accepts any key, so that alone proves nothing). Never killed on pid evidence alone."""
     try:
@@ -1555,7 +1555,7 @@ def clean_orphan():
                     break
                 sleep(0.5)
         else:
-            print(f'  port {port} is used by a server rr.py did not start: leaving it alone')
+            print(f'  port {port} is used by a server ditsearch.py did not start: leaving it alone')
     try:
         os.remove(pidfile())
     except OSError:
@@ -1563,7 +1563,7 @@ def clean_orphan():
 
 
 def kill_with_us(proc):
-    """Tie llama-server to this process: on Windows a job object kills it when rr.py ends in
+    """Tie llama-server to this process: on Windows a job object kills it when ditsearch.py ends in
     any way (even TerminateProcess). Linux uses PR_SET_PDEATHSIG at spawn, macOS the pidfile."""
     if os.name != 'nt':
         return
@@ -1589,7 +1589,7 @@ def kill_with_us(proc):
         info.basic.flags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
         if (job and k32.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info))
                 and k32.AssignProcessToJobObject(job, int(proc._handle))):
-            SERVER['job'] = job  # closed by Windows when rr.py exits, which kills the job
+            SERVER['job'] = job  # closed by Windows when ditsearch.py exits, which kills the job
     except Exception:
         pass  # the pidfile still lets the next run clean up
 
@@ -1607,7 +1607,7 @@ def start_server():
     if healthy():
         model = server_model()
         if model and 'clef-flash' in model.lower():
-            print(f'  using the System 1 server already running on port {PORT} (not started by rr.py)')
+            print(f'  using the System 1 server already running on port {PORT} (not started by ditsearch.py)')
             SERVER['model_id'] = model_id(model)
             return
     with socket.socket() as s:
@@ -1618,7 +1618,7 @@ def start_server():
         print(f'  port {busy} is used by another program; starting System 1 on port {PORT}')
     binary, model = find_server(), find_model()
     if not binary or not model:
-        sys.exit('System 1 runtime missing. Run "rr.py setup" for details.')
+        sys.exit('System 1 runtime missing. Run "ditsearch.py setup" for details.')
     key = secrets.token_hex(16)
     log = open('filter_server.log', 'w')
     extra = {'preexec_fn': die_with_parent} if sys.platform.startswith('linux') else {}
@@ -2057,7 +2057,7 @@ def cmd_filter(a):
     if not a.q:
         sys.exit('Give content questions with --q (3-6 work best).')
     if not os.path.exists(RESULTS_PATH):
-        sys.exit(f'No {RESULTS_PATH} in {os.getcwd()}. Run "rr.py search" first.')
+        sys.exit(f'No {RESULTS_PATH} in {os.getcwd()}. Run "ditsearch.py search" first.')
     Q = Questions(a)
     stage('Filter: System 1 server')
     with open(RESULTS_PATH, encoding='utf-8') as f:
@@ -2169,7 +2169,7 @@ def cmd_judge(a):
             picked.append(('chosen', post_record(con, r, matched)))
     else:
         if not os.path.exists(RESULTS_PATH):
-            sys.exit(f'No {RESULTS_PATH} in {os.getcwd()}. Run "rr.py search" first.')
+            sys.exit(f'No {RESULTS_PATH} in {os.getcwd()}. Run "ditsearch.py search" first.')
         with open(RESULTS_PATH, encoding='utf-8') as f:
             pool = [json.loads(line) for line in f]
         last = (os.path.splitext(a.out)[0] + '.verdicts.jsonl' if a.out else
@@ -2368,7 +2368,7 @@ def write_report(a, Q, J, posts, gate, hits):
         text = escape(p['selftext'])
         if len(text) > cap // 2:  # one post fills at most a tenth of the budget, text and threads together
             cut = text[:cap // 2].rsplit(' ', 1)[0]
-            text = cut + f'\n\n_[{len(text) - len(cut):,} more characters: `rr.py show P{p["pid"]}`]_'
+            text = cut + f'\n\n_[{len(text) - len(cut):,} more characters: `ditsearch.py show P{p["pid"]}`]_'
         if text:
             out += text + '\n\n'
         parts = [render_thread(p['threads'][i], hide_images=True) for i in kt]
@@ -2376,10 +2376,10 @@ def write_report(a, Q, J, posts, gate, hits):
             room = cap - len(out)
             if len(part) > room:
                 if n == 0 and room > 500:
-                    out += part[:room].rsplit('\n', 1)[0] + f'\n\n_[thread cut: `rr.py show P{p["pid"]}`]_\n\n'
+                    out += part[:room].rsplit('\n', 1)[0] + f'\n\n_[thread cut: `ditsearch.py show P{p["pid"]}`]_\n\n'
                     n += 1
                 if len(parts) > n:
-                    out += f'_{len(parts) - n} more kept threads: `rr.py show P{p["pid"]}`_\n\n'
+                    out += f'_{len(parts) - n} more kept threads: `ditsearch.py show P{p["pid"]}`_\n\n'
                 return out
             out += part + '\n\n'
         return out
@@ -2403,7 +2403,7 @@ def write_report(a, Q, J, posts, gate, hits):
                 + (f', then the other {rest:,} listed one per line' if rest else '')
                 + f' (the whole file stays within ~{a.budget:,} tokens; one post fills at most a tenth). Each post shows '
                 'its kept comment threads. A comment `c/<id>` is at https://www.reddit.com/comments/<post id>/_/<id>/ '
-                '(the post id is in its link). `rr.py show P<n>` prints the pruned copy of a post with all comments.\n')
+                '(the post id is in its link). `ditsearch.py show P<n>` prints the pruned copy of a post with all comments.\n')
 
     used = (len('\n'.join(head)) + len(budget_line(len(kept), len(kept))) + len(unjudged_text)) // 4
     shown, rest = [], []
@@ -2473,12 +2473,12 @@ def single_instance(name):
             import fcntl
             fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:
-        sys.exit(f'Another "rr.py {name}" is already running on this machine. Wait for it or stop it first.')
+        sys.exit(f'Another "ditsearch.py {name}" is already running on this machine. Wait for it or stop it first.')
     return f
 
 
 class Tee:
-    """Mirror console output into rr.log so a run can be followed from anywhere."""
+    """Mirror console output into ditsearch.log so a run can be followed from anywhere."""
 
     def __init__(self, stream, log, lock):
         self.stream, self.log, self.lock = stream, log, lock
@@ -2513,7 +2513,7 @@ class Tee:
         return getattr(self.stream, 'encoding', 'utf-8')
 
 
-WRITES = ('download', 'build', 'search', 'filter', 'judge')  # the commands that create --dir and rr.log
+WRITES = ('download', 'build', 'search', 'filter', 'judge')  # the commands that create --dir and ditsearch.log
 
 
 def add_question_args(p):
@@ -2530,13 +2530,13 @@ def main():
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, 'reconfigure'):
             stream.reconfigure(encoding='utf-8', errors='replace', line_buffering=True)
-    for var in ('RR_MODEL', 'RR_LLAMA_SERVER'):  # relative to where rr.py was started, not --dir
+    for var in ('RR_MODEL', 'RR_LLAMA_SERVER'):  # relative to where ditsearch.py was started, not --dir
         if os.environ.get(var):
             os.environ[var] = os.path.abspath(os.path.expanduser(os.environ[var]))
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--version', action='version', version=f'rr.py {VERSION}')
+    ap.add_argument('--version', action='version', version=f'ditsearch.py {VERSION}')
     ap.add_argument('--dir', default='.', help='research working directory (created if missing); a bare name '
-                                             'goes under ~/.RedSearch/research/')
+                                             'goes under ~/.DitSearch/research/')
     sp = ap.add_subparsers(dest='cmd', required=True)
 
     p = sp.add_parser('setup', help='check llama-server and the Clef-Flash model')
@@ -2619,8 +2619,8 @@ def main():
     elif a.cmd in ('show', 'flairs'):
         sys.exit(f'No such directory: {a.dir}')
     if a.cmd in WRITES:
-        log = open('rr.log', 'a', encoding='utf-8', errors='replace', newline='\n', buffering=1)
-        log.write(f'\n##### {datetime.now():%Y-%m-%d %H:%M:%S}  rr.py {" ".join(sys.argv[1:])}\n')
+        log = open('ditsearch.log', 'a', encoding='utf-8', errors='replace', newline='\n', buffering=1)
+        log.write(f'\n##### {datetime.now():%Y-%m-%d %H:%M:%S}  ditsearch.py {" ".join(sys.argv[1:])}\n')
         out_lock = threading.Lock()
         sys.stdout, sys.stderr = Tee(sys.stdout, log, out_lock), Tee(sys.stderr, log, out_lock)
     for name in ('SIGINT', 'SIGTERM', 'SIGBREAK'):

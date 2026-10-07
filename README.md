@@ -1,10 +1,10 @@
-# RedSearch
+# DitSearch
 
 A [Claude Code](https://claude.com/claude-code) skill that researches what Reddit says
 about a topic, product or question, and answers from the posts and comments it finds, with
 links.
 
-Reddit blocks AI requests, so RedSearch never touches reddit.com. It works like this:
+Reddit blocks AI requests, so DitSearch never touches reddit.com. It works like this:
 
 1. Downloads whole subreddits from the [Arctic Shift](https://arctic-shift.photon-reddit.com)
    archive into a local cache.
@@ -16,26 +16,26 @@ Reddit blocks AI requests, so RedSearch never touches reddit.com. It works like 
    `/v1/systemone`.
 5. Writes one relevance-filtered markdown report for Claude to answer from.
 
-Everything is one script: `rr.py`, standard library only, Python 3.9+.
+Everything is one script: `ditsearch.py`, standard library only, Python 3.9+.
 
 ## Install
 
 One command. Windows (PowerShell):
 
 ```powershell
-irm https://raw.githubusercontent.com/Samet1771/RedSearch/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/Samet1771/DitSearch/main/install.ps1 | iex
 ```
 
 macOS / Linux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Samet1771/RedSearch/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Samet1771/DitSearch/main/install.sh | sh
 ```
 
-The installer puts `rr.py` in `~/.RedSearch/`, the skill in
-`~/.claude/skills/reddit-research/`, and downloads the Clef-Flash model (Q8_0: 9.7 GB,
-needs ~11.5 GB VRAM). Set `REDSEARCH_QUANT=Q4_K_M` first for the 6.5 GB version (~8 GB
-VRAM), or `REDSEARCH_NO_MODEL=1` to skip the model. Run it again to update; it keeps your
+The installer puts `ditsearch.py` in `~/.DitSearch/`, the skill in
+`~/.claude/skills/ditsearch/`, and downloads the Clef-Flash model (Q8_0: 9.7 GB,
+needs ~11.5 GB VRAM). Set `DITSEARCH_QUANT=Q4_K_M` first for the 6.5 GB version (~8 GB
+VRAM), or `DITSEARCH_NO_MODEL=1` to skip the model. Run it again to update; it keeps your
 data and the model.
 
 **Requirements:**
@@ -45,12 +45,12 @@ data and the model.
   [release](https://github.com/ggml-org/llama.cpp/releases). The model runs on a CPU too,
   but slowly.
 
-Run `python ~/.RedSearch/rr.py setup` to check what is missing.
+Run `python ~/.DitSearch/ditsearch.py setup` to check what is missing.
 
 ## Use
 
 Ask Claude Code something like *"What does Reddit say about breeding leopard geckos? Make
-me a guide."* The skill ([SKILL.md](reddit-research/SKILL.md)) walks Claude through
+me a guide."* The skill ([SKILL.md](ditsearch/SKILL.md)) walks Claude through
 these steps:
 1. choosing subreddits and a date window
 2. downloading
@@ -61,20 +61,20 @@ these steps:
 
 The long steps (download, filter) run as background tasks with live progress.
 
-To run the commands yourself, see `python ~/.RedSearch/rr.py --help`. The main ones are `subs`,
+To run the commands yourself, see `python ~/.DitSearch/ditsearch.py --help`. The main ones are `subs`,
 `download`, `flairs`, `search`, `judge`, `filter` and `show`.
 
 ## Where data goes
 
-Everything is in `~/.RedSearch/` (or `$REDSEARCH_HOME`):
-- `rr.py`: the script.
+Everything is in `~/.DitSearch/` (or `$DITSEARCH_HOME`):
+- `ditsearch.py`: the script.
 - `models/`: the model.
-- `cache/archive/`: raw downloads, shared by all research topics. `rr.py cache` lists them.
+- `cache/archive/`: raw downloads, shared by all research topics. `ditsearch.py cache` lists them.
 - `research/<topic>/`: one folder per research topic, holding the index, search hits,
   decision cache and reports.
 
 ## Be kind to Arctic Shift
 
 Arctic Shift is a free archive run by one person, with a load-dependent rate limit.
-`rr.py` paces itself to the server's per-minute budget and allows only one download at a
+`ditsearch.py` paces itself to the server's per-minute budget and allows only one download at a
 time per machine. Don't work around either.
