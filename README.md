@@ -21,7 +21,7 @@ Everything is one script: `rr.py`, standard library only, Python 3.9+.
 ## Install
 
 ```bash
-git clone https://github.com/samet1771/RedSearch.git
+git clone https://github.com/Samet1771/RedSearch.git
 cp -r RedSearch/reddit-research ~/.claude/skills/
 ```
 
