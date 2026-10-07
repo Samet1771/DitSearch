@@ -20,23 +20,32 @@ Everything is one script: `rr.py`, standard library only, Python 3.9+.
 
 ## Install
 
-```bash
-git clone https://github.com/Samet1771/RedSearch.git
-cp -r RedSearch/reddit-research ~/.claude/skills/
+One command. Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/Samet1771/RedSearch/main/install.ps1 | iex
 ```
 
-On Windows, copy `reddit-research` into `%USERPROFILE%\.claude\skills\`.
+macOS / Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Samet1771/RedSearch/main/install.sh | sh
+```
+
+The installer puts `rr.py` in `~/.RedSearch/`, the skill in
+`~/.claude/skills/reddit-research/`, and downloads the Clef-Flash model (Q8_0: 9.7 GB,
+needs ~11.5 GB VRAM). Set `REDSEARCH_QUANT=Q4_K_M` first for the 6.5 GB version (~8 GB
+VRAM), or `REDSEARCH_NO_MODEL=1` to skip the model. Run it again to update; it keeps your
+data and the model.
 
 **Requirements:**
 - **Python 3.9+**, with SQLite 3.27 or newer (most builds have it).
 - **llama.cpp build 11371 or newer**, for `/v1/systemone`. Install it with
   `winget install llama.cpp` or `brew install llama.cpp`, or take a
-  [release](https://github.com/ggml-org/llama.cpp/releases).
-- **The Clef-Flash model.** `python rr.py setup --download` fetches it into
-  `reddit-research/models/`: Q8_0 is 9.7 GB and needs ~11.5 GB VRAM. Add
-  `--quant Q4_K_M` for the 6.5 GB version (~8 GB VRAM). It runs on a CPU too, but slowly.
+  [release](https://github.com/ggml-org/llama.cpp/releases). The model runs on a CPU too,
+  but slowly.
 
-Run `python rr.py setup` to check what is missing.
+Run `python ~/.RedSearch/rr.py setup` to check what is missing.
 
 ## Use
 
@@ -52,16 +61,17 @@ these steps:
 
 The long steps (download, filter) run as background tasks with live progress.
 
-To run the commands yourself, see `python rr.py --help`. The main ones are `subs`,
+To run the commands yourself, see `python ~/.RedSearch/rr.py --help`. The main ones are `subs`,
 `download`, `flairs`, `search`, `judge`, `filter` and `show`.
 
 ## Where data goes
 
-- `~/.cache/reddit-research/archive/`: raw downloads, shared by all research topics.
-  `rr.py cache` lists them.
-- `~/reddit-research/<topic>/`: one folder per research topic, holding the index, search
-  hits, decision cache and reports.
-- `reddit-research/models/`: the model (ignored by git).
+Everything is in `~/.RedSearch/` (or `$REDSEARCH_HOME`):
+- `rr.py`: the script.
+- `models/`: the model.
+- `cache/archive/`: raw downloads, shared by all research topics. `rr.py cache` lists them.
+- `research/<topic>/`: one folder per research topic, holding the index, search hits,
+  decision cache and reports.
 
 ## Be kind to Arctic Shift
 

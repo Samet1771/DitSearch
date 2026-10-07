@@ -15,7 +15,9 @@ SQLite FTS5, search them, and filter the hits with a local System 1 decision mod
     rr.py filter --q Q1 --q Q2 [--must M] [--not N] [--limit 500] [--budget 50000] [--out report.md]
     rr.py show P123 [1abc2de ...]                     print posts with their pruned threads
 
-Global option: --dir PATH (working directory for this research topic, default: cwd).
+Global option: --dir PATH (working directory for this research topic, default: cwd; a bare
+name like `gecko-breeding` means ~/.RedSearch/research/gecko-breeding).
+Data lives in ~/.RedSearch (or $REDSEARCH_HOME): cache/, models/, research/.
 Standard library only. Python 3.9+.
 """
 import argparse
@@ -119,8 +121,10 @@ def clean(text):
 
 HF = 'https://huggingface.co'
 MODEL_REPO = 'ggml-org/Clef-Flash-GGUF'
-CACHE_DIR = os.path.join(os.path.expanduser('~'), '.cache', 'reddit-research')  # downloads, locks, server pidfile
-MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models')  # next to rr.py
+HOME_DIR = os.path.abspath(os.path.expanduser(os.environ.get('REDSEARCH_HOME') or '~/.RedSearch'))
+CACHE_DIR = os.path.join(HOME_DIR, 'cache')    # downloads, locks, server pidfile
+MODEL_DIR = os.path.join(HOME_DIR, 'models')
+RESEARCH_DIR = os.path.join(HOME_DIR, 'research')  # one folder per research topic
 MIN_LLAMA_BUILD = 11371  # first llama.cpp build with Clef / /v1/systemone (PR #29831)
 PORT = int(os.environ.get('RR_PORT') or 8091)
 # Measured on an RTX 5070 Ti 16 GB (~11.4 GB used): 4 slots of 8K run short states
@@ -1376,7 +1380,7 @@ def server_build(binary):
 
 def find_model():
     """Clef-Flash gguf: $RR_MODEL, the one `setup --download` chose, the models folder next to rr.py,
-    ~/.cache/reddit-research (older versions downloaded there), or a LlamaGUI / LM Studio models dir."""
+    older download places, or a LlamaGUI / LM Studio models dir."""
     if os.environ.get('RR_MODEL'):
         return os.environ['RR_MODEL'] if os.path.exists(os.environ['RR_MODEL']) else None
     try:
@@ -1386,7 +1390,8 @@ def find_model():
             return chosen
     except (OSError, ValueError, KeyError):
         pass
-    for root in (MODEL_DIR, CACHE_DIR, '~/.llamagui/models', '~/.lmstudio/models', '~/models'):
+    for root in (MODEL_DIR, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models'), '~/.cache/reddit-research',
+                 '~/.llamagui/models', '~/.lmstudio/models', '~/models'):
         hits = sorted(glob.glob(os.path.join(os.path.expanduser(root), '**', 'Clef-Flash-*.gguf'), recursive=True))
         hits = [h for h in hits if not h.endswith('.part')]
         if hits:
@@ -2530,7 +2535,8 @@ def main():
             os.environ[var] = os.path.abspath(os.path.expanduser(os.environ[var]))
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--version', action='version', version=f'rr.py {VERSION}')
-    ap.add_argument('--dir', default='.', help='research working directory (created if missing)')
+    ap.add_argument('--dir', default='.', help='research working directory (created if missing); a bare name '
+                                             'goes under ~/.RedSearch/research/')
     sp = ap.add_subparsers(dest='cmd', required=True)
 
     p = sp.add_parser('setup', help='check llama-server and the Clef-Flash model')
@@ -2604,6 +2610,8 @@ def main():
     a = ap.parse_args()
     lock_name = {'download': 'download', 'filter': 'filter', 'judge': 'filter'}.get(a.cmd)  # filter: the GPU
     lock = single_instance(lock_name) if lock_name else None  # held until exit
+    if not re.search(r'[\\/:.~]', a.dir):
+        a.dir = os.path.join(RESEARCH_DIR, a.dir)
     if a.cmd in WRITES:
         os.makedirs(a.dir, exist_ok=True)
     if os.path.isdir(a.dir):
